@@ -82,7 +82,9 @@ export const action: ActionFunction = async ({ request }) => {
     const byDays = concatByDayFormData(formData);
     const isRecurring = byDays !== '';
 
-    const recurringPattern = 'BYDAYS=' + byDays;
+    const patterns = ['FREQ=WEEKLY', 'BYDAYS=' + byDays];
+
+    const recurringPattern = isRecurring ? patterns.join(';') : '';
 
     const event = {
         title,
@@ -161,63 +163,65 @@ export default function NewEvent() {
     console.log(action);
 
     return (
-        <Form method="post" className="space-y-4 py-4">
-            <input
-                type="hidden"
-                id="timezone"
-                name="timezone"
-                value={Intl.DateTimeFormat().resolvedOptions().timeZone}
-            />
-
-            <ByDaySelector />
-
-            <div>
-                <Label htmlFor="title" label="Title" />
+        <div className="m-auto max-w-sm">
+            <Form method="post" className="space-y-4 py-4">
                 <input
-                    required
-                    type="text"
-                    name="title"
-                    id="title"
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    type="hidden"
+                    id="timezone"
+                    name="timezone"
+                    value={Intl.DateTimeFormat().resolvedOptions().timeZone}
                 />
-                {action?.error?.title && (
-                    <p className="text-red-600">{action.error.title}</p>
-                )}
-            </div>
 
-            <div>
-                <Label htmlFor="start" label="Day and start time" />
-                <input
-                    required
-                    type="datetime-local"
-                    name="start"
-                    id="start"
-                    onChange={(e) => setStartDate(e.target.value)}
-                    // onChange={(e) => console.log(e.target.value)}
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                />
-            </div>
+                <ByDaySelector />
 
-            <div>
-                <Label htmlFor="end" label="End" />
-                <input
-                    required
-                    type="time"
-                    name="end"
-                    min={startDate?.split('T')[1] ?? '00:00'}
-                    id="end"
-                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                />
-            </div>
+                <div>
+                    <Label htmlFor="title" label="Title" />
+                    <input
+                        required
+                        type="text"
+                        name="title"
+                        id="title"
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                    {action?.error?.title && (
+                        <p className="text-red-600">{action.error.title}</p>
+                    )}
+                </div>
 
-            <p>
-                <button
-                    type="submit"
-                    className="w-full rounded-md border border-transparent bg-blue-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                >
-                    Add event
-                </button>
-            </p>
-        </Form>
+                <div>
+                    <Label htmlFor="start" label="Day and start time" />
+                    <input
+                        required
+                        type="datetime-local"
+                        name="start"
+                        id="start"
+                        onChange={(e) => setStartDate(e.target.value)}
+                        // onChange={(e) => console.log(e.target.value)}
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                </div>
+
+                <div>
+                    <Label htmlFor="end" label="End" />
+                    <input
+                        required
+                        type="time"
+                        name="end"
+                        min={startDate?.split('T')[1] ?? '00:00'}
+                        id="end"
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    />
+                </div>
+
+                <p>
+                    <button
+                        type="submit"
+                        className="w-full rounded-md border border-transparent bg-blue-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                        Add event
+                    </button>
+                </p>
+            </Form>
+        </div>
     );
 }

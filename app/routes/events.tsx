@@ -10,6 +10,7 @@ import {
 } from '~/utils/db.events';
 import {
     differenceInMinutes,
+    Duration,
     format,
     formatDuration,
     intervalToDuration,
@@ -60,6 +61,30 @@ export let loader: LoaderFunction = async () => {
 //     }
 // };
 
+const ProgressRing = ({ progress }: { progress: number }) => {
+    const radius = 16;
+    const stroke = 5;
+    const normalizedRadius = radius - stroke * 2;
+    const circumference = normalizedRadius * 2 * Math.PI;
+    const strokeDashoffset = circumference - (progress / 100) * circumference;
+    // const strokeDashoffset = circumference - progress * circumference;
+
+    return (
+        <svg height={radius * 2} width={radius * 2}>
+            <circle
+                stroke="blue"
+                fill="transparent"
+                strokeDasharray={circumference + ' ' + circumference}
+                style={{ strokeDashoffset: strokeDashoffset }}
+                strokeWidth={stroke}
+                r={normalizedRadius}
+                cx={radius}
+                cy={radius}
+            />
+        </svg>
+    );
+};
+
 const EventAnalogProgress = ({
     startDate,
     newDate,
@@ -67,7 +92,82 @@ const EventAnalogProgress = ({
     startDate: Date;
     newDate: Date;
 }) => {
-    return <div>{differenceInMinutes(startDate, newDate)}</div>;
+    const minutesTill = differenceInMinutes(startDate, newDate);
+
+    if (minutesTill > 60) {
+        return null;
+    }
+
+    return <ProgressRing progress={(29 / 30) * 100} />;
+};
+
+function getDurationColor(duration: Duration) {
+    if (
+        !duration.years &&
+        !duration.months &&
+        !duration.weeks &&
+        !duration.days &&
+        !duration.hours &&
+        duration.minutes
+    ) {
+        if (duration.minutes > 34) return 'red-400';
+        if (duration.minutes > 29) return 'red-500';
+        return 'red-600';
+        // format 1 hour -> light red
+        // format 30 mins -> red
+        // format 25 mins -> ultra red
+    }
+}
+
+const EventGTDBlock = ({ event, newDate }: { event: Event; newDate: Date }) => {
+    const timeFormat = 'h:mmaaa';
+    const dateFormat = 'EEE, MMM dd'; // 'yyyy-MM-dd' 'MM/dd'
+    const startDate = parseISO(event.start);
+    const endDate = parseISO(event.end);
+    const startDateFormatted = format(startDate, dateFormat);
+    const startTimeFormatted = format(startDate, timeFormat);
+    const endTimeFormatted = format(endDate, timeFormat);
+    const isPassed = isAfter(newDate, startDate); // isStartPassed?
+    const duration = intervalToDuration({
+        start: newDate,
+        end: startDate,
+    });
+    const timeUntil = formatDuration(duration, {
+        //   delimiter: ' ',
+        format: ['months', 'weeks', 'days', 'hours', 'minutes'],
+    });
+    return (
+        <div key={event.id} className="grid grid-cols-2 py-3">
+            <div>
+                <p className="text-sm uppercase text-gray-500">
+                    {startDateFormatted}
+                </p>
+                <p className="text-sm">
+                    {startTimeFormatted} - {endTimeFormatted}
+                </p>
+            </div>
+            <div>
+                <Link to={`/events/${event.id}`}>
+                    <p className="font-bold text-gray-800 hover:underline">
+                        {event.title}
+                    </p>
+                </Link>
+                {isPassed ? (
+                    <p>{isPassed && 'Event has passed'}</p>
+                ) : (
+                    <p className={`text-${getDurationColor(duration)}`}>
+                        {timeUntil} remaining
+                    </p>
+                )}
+            </div>
+            {/* <Link
+                    to={`/events/${event.id}`}
+                    className="inline-block rounded-md bg-gray-100 px-4 py-3"
+                >
+                    Edit
+                </Link> */}
+        </div>
+    );
 };
 
 const EventBlock = ({ event, newDate }: { event: Event; newDate: Date }) => {
@@ -153,9 +253,14 @@ export default function Events() {
                             <h2 className="font-bold uppercase">
                                 {event.title}
                             </h2>
-                            <div className="divide-y-2">
+                            <div className="divide-y divide-stone-500">
                                 {event.events.map((data) => (
-                                    <EventBlock
+                                    // <EventBlock
+                                    //     key={data.id}
+                                    //     event={data}
+                                    //     newDate={newDate}
+                                    // />
+                                    <EventGTDBlock
                                         key={data.id}
                                         event={data}
                                         newDate={newDate}

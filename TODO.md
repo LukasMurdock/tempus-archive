@@ -69,7 +69,7 @@ type EventSchema = {
     duration: string; // 01:30 — differenceInMinutes(dateLeft, dateRight, [options])
     // https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/time#time_value_format
     isRecurring: boolean;
-    recurringPattern: string;
+    recurringPattern: string; // FREQ=WEEKLY;BYDAY=MO,WE
 
     // RRULE:
     // https://www.rfc-editor.org/rfc/rfc5545#section-3.8.5.3

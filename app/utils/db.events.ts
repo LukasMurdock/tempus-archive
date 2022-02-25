@@ -3,6 +3,7 @@ import {
     addWeeks,
     format,
     formatDuration,
+    getDay,
     intervalToDuration,
     isAfter,
     isBefore,
@@ -10,12 +11,33 @@ import {
     isWeekend,
     nextMonday,
     parseISO,
+    setMilliseconds,
+    setSeconds,
 } from 'date-fns';
+import RRule from 'rrule';
 import { db } from '~/utils/db.server';
 
 // TODO: rrule parsing to actually build in recurring dates
-export function getAllOccurancesForRecurringDate(event: Event) {
+export async function generateRecurringEvents(event: Event) {
     // fuck it let’s use https://jakubroztocil.github.io/rrule/
+    const nextWeekFormatted = format(
+        nextMonday(new Date()),
+        "yyyymmdd'T'000000'Z'"
+    );
+
+    // 2011-10-05T14:48:00.000Z
+    // 20301224T000000Z
+
+    // WKST required
+    const rule = RRule.fromString(
+        `FREQ=WEEKLY;UNTIL=${nextWeekFormatted};WKST=SU;BYDAY=MO,WE`
+    );
+
+    // return rule.all();
+    console.log(rule.all().length);
+    return rule
+        .all()
+        .map((recurringStart) => ({ ...event, start: recurringStart }));
 }
 
 export function parseEventData(event: Event) {
@@ -24,6 +46,7 @@ export function parseEventData(event: Event) {
     const dateFormat = 'MM/dd'; // 'yyyy-MM-dd'
 
     const startDate = parseISO(event.start);
+    const startingDayOfWeek = getDay(startDate);
     const endDate = parseISO(event.end);
     const startDateFormatted = format(startDate, dateFormat);
     const startTimeFormatted = format(startDate, timeFormat);
@@ -49,12 +72,19 @@ export function parseEventData(event: Event) {
         endTimeFormatted,
         isPassed,
         timeUntil,
+        startingDayOfWeek,
     };
+}
+
+export async function getWeeklyRecurringEvents() {
+    return await db.event.findMany({
+        where: { isRecurring: true },
+    });
 }
 
 export async function getRecurringEvents() {
     return await db.event.findMany({
-        where: { isRecurring: false },
+        where: { isRecurring: true },
     });
 }
 

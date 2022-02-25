@@ -1,16 +1,30 @@
 import type { Event } from '@prisma/client';
-import { LoaderFunction, useLoaderData } from 'remix';
+import { Link, LoaderFunction, useLoaderData } from 'remix';
 import { useEffect, useRef } from 'react';
-import { getEvents, parseEventData } from '~/utils/db.events';
+import {
+    generateRecurringEvents,
+    getEvents,
+    getRecurringEvents,
+    parseEventData,
+} from '~/utils/db.events';
 import { getHours, getMinutes } from 'date-fns';
+import classNames from '~/utils/classNames';
 
 type LoaderData = Event[];
 export let loader: LoaderFunction = async () => {
-    const events = await getEvents();
-    return events;
-};
+    // const events = await getEvents();
+    const recurringEvents = await getRecurringEvents();
 
-const CIRCLE = 288;
+    const allRecurringEvents = await Promise.all(
+        recurringEvents.map(async (single) => {
+            return await generateRecurringEvents(single);
+        })
+    );
+
+    // console.log(allRecurringEvents);
+    // console.log('allRecurringEvents');
+    return allRecurringEvents;
+};
 
 function roundToNearestFifth(number: number) {
     return Math.ceil(number / 5) * 5;
@@ -43,13 +57,15 @@ const EventWeekItem = ({ event }: { event: Event }) => {
     const data = parseEventData(event);
     console.log(data);
     console.log(timeToGridRow(data.startDate));
+    console.log(data.startingDayOfWeek);
+    console.log('AHHHHH');
     return (
         <li
-            className="relative mt-px flex sm:col-start-3"
+            className={`relative mt-px flex sm:col-start-${data.startingDayOfWeek}`}
             style={{ gridRow: timeToGridRow(data.startDate) }} // 6:00 AM
         >
-            <a
-                href="#"
+            <Link
+                to={`/events/${data.id}`}
                 className="group absolute inset-1 flex flex-col overflow-y-auto rounded-lg bg-blue-50 p-2 text-xs leading-5 hover:bg-blue-100"
             >
                 <p className="order-1 font-semibold text-blue-700">
@@ -61,7 +77,7 @@ const EventWeekItem = ({ event }: { event: Event }) => {
                 <p className="text-blue-500 group-hover:text-blue-700">
                     <time dateTime={data.start}>{data.startTimeFormatted}</time>
                 </p>
-            </a>
+            </Link>
         </li>
     );
 };
@@ -71,7 +87,9 @@ export default function Week() {
     const containerNav = useRef(null);
     const containerOffset = useRef(null);
     const events = useLoaderData<LoaderData>();
-    console.log(events);
+    // console.log(events);
+
+    return <div>Check console</div>;
 
     // useEffect(() => {
     //     // Set the container scroll position based on the current time.
