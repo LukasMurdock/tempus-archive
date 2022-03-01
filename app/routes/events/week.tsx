@@ -2,12 +2,20 @@ import type { Event } from '@prisma/client';
 import { Link, LoaderFunction, useLoaderData } from 'remix';
 import { useEffect, useRef } from 'react';
 import {
+    daysOfWeek,
     generateRecurringEvents,
     getEvents,
     getRecurringEvents,
     parseEventData,
 } from '~/utils/db.events';
-import { getHours, getMinutes } from 'date-fns';
+import {
+    format,
+    getHours,
+    getMinutes,
+    isSameDay,
+    isSameWeek,
+    parseISO,
+} from 'date-fns';
 import classNames from '~/utils/classNames';
 
 type LoaderData = Event[];
@@ -15,15 +23,43 @@ export let loader: LoaderFunction = async () => {
     // const events = await getEvents();
     const recurringEvents = await getRecurringEvents();
 
+    // const allRecurringEvents = await Promise.all(
+    //     recurringEvents.map(async (single) => {
+    //         return await generateRecurringEvents(single);
+    //     })
+    // );
+
     const allRecurringEvents = await Promise.all(
-        recurringEvents.map(async (single) => {
-            return await generateRecurringEvents(single);
-        })
+        recurringEvents.map(
+            async (single) => await generateRecurringEvents(single)
+        )
     );
+
+    // const sortedEvents = allRecurringEvents
+    //     .flat(1)
+    //     .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    // // console.log(allRecurringEvents.flat(1));
+    // const currentDate = new Date();
+    // console.log('SORTED');
+    // console.log(sortedEvents.length);
+    // console.log('SORTED');
+
+    // console.log(sortedEvents[1]);
+
+    // const recurringThisWeek = sortedEvents.filter((date) =>
+    //     isSameWeek(currentDate, date.start)
+    // );
+
+    // console.log('START');
+    // // console.log(recurringThisWeek);
+    // console.log('START');
+    // console.log(recurringThisWeek.length);
+    // console.log('LENGTH ABOVE');
 
     // console.log(allRecurringEvents);
     // console.log('allRecurringEvents');
-    return allRecurringEvents;
+    return allRecurringEvents.flat(1);
 };
 
 function roundToNearestFifth(number: number) {
@@ -36,7 +72,7 @@ function timeToGridRow(date: Date) {
     const hourMultiplier = 12; // wrong
     const hourNumber = 2 + getHours(date) * hourMultiplier;
     const minuteNumber = roundToNearestFifth(getMinutes(date));
-    console.log(minuteNumber);
+    // console.log(minuteNumber);
     const gridRowString = `${hourNumber} / span 12`;
     return gridRowString;
     // return hourNumber + minuteNumber;
@@ -55,13 +91,15 @@ const twelveAM = 146;
 
 const EventWeekItem = ({ event }: { event: Event }) => {
     const data = parseEventData(event);
-    console.log(data);
-    console.log(timeToGridRow(data.startDate));
+    // console.log(data);
+    // console.log(timeToGridRow(data.startDate));
+    // console.log(data.startingDayOfWeek);
+    // console.log('AHHHHH');
     console.log(data.startingDayOfWeek);
-    console.log('AHHHHH');
+    const timeStyle = `sm:col-start-${data.startingDayOfWeek}`;
     return (
         <li
-            className={`relative mt-px flex sm:col-start-${data.startingDayOfWeek}`}
+            className={classNames('relative mt-px flex', timeStyle)}
             style={{ gridRow: timeToGridRow(data.startDate) }} // 6:00 AM
         >
             <Link
@@ -87,9 +125,10 @@ export default function Week() {
     const containerNav = useRef(null);
     const containerOffset = useRef(null);
     const events = useLoaderData<LoaderData>();
-    // console.log(events);
+    console.log(events);
+    const currentDate = new Date();
 
-    return <div>Check console</div>;
+    // return <div>Check console</div>;
 
     // useEffect(() => {
     //     // Set the container scroll position based on the current time.
@@ -126,6 +165,18 @@ export default function Week() {
                         className="sticky top-0 z-10 flex-none bg-white shadow ring-1 ring-black ring-opacity-5 sm:pr-8"
                     >
                         <div className="grid grid-cols-7 text-sm leading-6 text-gray-500 sm:hidden">
+                            {daysOfWeek().map((weekday) => (
+                                <button
+                                    key={weekday.toISOString()}
+                                    type="button"
+                                    className="flex flex-col items-center pt-2 pb-3"
+                                >
+                                    {weekday.getMonth()}
+                                    <span className="mt-1 flex h-8 w-8 items-center justify-center font-semibold text-gray-900">
+                                        {format(weekday, 'dd')}
+                                    </span>
+                                </button>
+                            ))}
                             <button
                                 type="button"
                                 className="flex flex-col items-center pt-2 pb-3"
@@ -193,7 +244,32 @@ export default function Week() {
 
                         <div className="-mr-px hidden grid-cols-7 divide-x divide-gray-100 border-r border-gray-100 text-sm leading-6 text-gray-500 sm:grid">
                             <div className="col-end-1 w-14" />
-                            <div className="flex items-center justify-center py-3">
+                            {daysOfWeek().map((weekday) => (
+                                <div
+                                    key={weekday.toISOString()}
+                                    className="flex items-center justify-center py-3"
+                                >
+                                    <span
+                                        className={classNames(
+                                            isSameDay(weekday, currentDate)
+                                                ? 'flex items-baseline'
+                                                : ''
+                                        )}
+                                    >
+                                        {format(weekday, 'EEE')}{' '}
+                                        <span
+                                            className={classNames(
+                                                isSameDay(weekday, currentDate)
+                                                    ? 'ml-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black font-semibold text-white'
+                                                    : 'items-center justify-center font-semibold text-gray-900'
+                                            )}
+                                        >
+                                            {format(weekday, 'd')}
+                                        </span>
+                                    </span>
+                                </div>
+                            ))}
+                            {/* <div className="flex items-center justify-center py-3">
                                 <span>
                                     Mon{' '}
                                     <span className="items-center justify-center font-semibold text-gray-900">
@@ -248,7 +324,7 @@ export default function Week() {
                                         16
                                     </span>
                                 </span>
-                            </div>
+                            </div> */}
                         </div>
                     </div>
                     <div className="flex flex-auto">
@@ -281,7 +357,7 @@ export default function Week() {
                                 {events.map((event) => (
                                     <EventWeekItem
                                         event={event}
-                                        key={event.id}
+                                        key={event.start}
                                     />
                                 ))}
                                 {/* <li
