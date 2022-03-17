@@ -107,6 +107,7 @@ export const action: ActionFunction = async ({ request }) => {
     // const start = parse(startForm, dateTimeLocalFormat, new Date());
 
     const created = await createEvent(event);
+
     // return redirect(`/events/${created.id}`);
     return redirect(`/events/`);
 

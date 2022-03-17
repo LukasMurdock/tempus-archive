@@ -35,6 +35,17 @@ export function daysOfWeek() {
     });
 }
 
+function convertDateToRRuleFormat(date: Date) {
+    return format(date, "yyyyMMdd'T'000000'Z'");
+}
+
+function convertRRULEToObject(string: String) {
+    return string
+        .split(';')
+        .map((rule) => rule.split('='))
+        .reduce<Record<string, string>>((a, v) => ({ ...a, [v[0]]: v[1] }), {});
+}
+
 // TODO: rrule parsing to actually build in recurring dates
 export async function generateRecurringEvents(event: Event) {
     // fuck it let’s use https://jakubroztocil.github.io/rrule/
@@ -42,12 +53,10 @@ export async function generateRecurringEvents(event: Event) {
     //     nextMonday(new Date()),
     //     "yyyymmdd'T'000000'Z'"
     // );
-
-    const nextWeekFormatted = format(
-        endOfWeek(new Date()),
-        "yyyyMMdd'T'000000'Z'"
-    );
-    console.log('AHHHH');
+    console.log('working event start?');
+    console.log(event.start);
+    const nextWeekFormatted = convertDateToRRuleFormat(endOfWeek(new Date()));
+    const eventDTSTART = convertDateToRRuleFormat(parseISO(event.start));
     console.log(nextWeekFormatted);
 
     // 2011-10-05T14:48:00.000Z
@@ -56,29 +65,86 @@ export async function generateRecurringEvents(event: Event) {
     // 20130130T230000Z
     // 20220301T000000Z
     // 20220305T000000Z
-    console.log('desired: 20220304T000000Z');
-    console.log('we got: ' + nextWeekFormatted);
+    console.log('UNTIL:20220304T000000Z');
+    console.log('UNTILGOT:' + nextWeekFormatted);
 
+    // TODO: Pass in BYDAY params
     // WKST required
+    // const rule2 = new RRule({
+    //     freq: RRule.WEEKLY,
+    //     dtstart: new Date(Date.UTC(2022, 2, 1, 15, 0, 0)),
+    //     count: 5,
+    //     byweekday: [RRule.TU, RRule.TH],
+    // });
+    // DTSTART:20220303T161700Z
+    // RRULE:FREQ=WEEKLY;WKST=MO;BYDAY=TU,TH
+    // DTSTART:20220227T000000Z;RRULE:FREQ=WEEKLY;UNTIL:20220304T000000Z;WKST=SU;BYDAY=MO,WE,FR
+
+    const recurringPatternObject = convertRRULEToObject(event.recurringPattern);
+    console.log('recurringPattern object');
+    console.log(recurringPatternObject);
+    // console.log(recurringPatternObject.BYDAYS && );
+
     const rule = RRule.fromString(
-        `FREQ=WEEKLY;UNTIL=${nextWeekFormatted};WKST=SU;BYDAY=TU,TH`
+        `DTSTART:${eventDTSTART}\nRRULE:FREQ=WEEKLY;UNTIL=${nextWeekFormatted};WKST=SU${
+            recurringPatternObject.BYDAYS &&
+            `;BYDAY=${recurringPatternObject.BYDAYS}`
+        }`
     );
 
     // return rule.all();
+    console.log('should have this many');
     console.log(rule.all().length);
+    console.log('ALLRULES');
+    console.log(rule.all());
+    console.log('ALLRULES');
     console.log('rule length');
-    return rule
-        .all()
-        .map((recurringStart) => ({ ...event, start: recurringStart }));
+    console.log();
+    // TODO: combine recurringStart date and start time
+    return rule.all().map((recurringStart) => ({
+        ...event,
+        start: setTime(recurringStart, parseISO(event.start)),
+    }));
 }
 
-export function parseEventData(event: Event) {
+function setTime(startDate: Date, endTime: Date) {
+    const date = startDate.toISOString().split('T')[0];
+    const time = endTime.toISOString().split('T')[1];
+    const newDate = parseISO(date + 'T' + time);
+
+    console.log('---');
+    console.log(startDate);
+    console.log(endTime);
+    console.log('---');
+    console.log('SETTING TIME:');
+    console.log(newDate);
+    return newDate;
+    // return setMinutes(
+    //     setHours(startDate, getHours(endTime)),
+    //     getMinutes(endTime)
+    // );
+}
+
+export interface ParsedEvent extends Event {
+    startDate: Date;
+    endDate: Date;
+    endDateAtStartDate: Date;
+    startDateFormatted: string;
+    startTimeFormatted: string;
+    isPassed: boolean;
+    timeUntil: string;
+    startingDayOfWeek: number;
+}
+
+export function parseEventData(event: Event): ParsedEvent {
     // console.log(event);
     // console.log('hello');
     const currentDate = new Date();
     const timeFormat = 'hh:mm aa';
     const dateFormat = 'MM/dd'; // 'yyyy-MM-dd'
 
+    console.log('event.start');
+    console.log(event.start);
     const startDate = parseISO(event.start);
     const startingDayOfWeek = getDay(startDate);
     const endDate = parseISO(event.end);

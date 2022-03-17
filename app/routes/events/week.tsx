@@ -6,6 +6,7 @@ import {
     generateRecurringEvents,
     getEvents,
     getRecurringEvents,
+    ParsedEvent,
     parseEventData,
 } from '~/utils/db.events';
 import {
@@ -15,6 +16,7 @@ import {
     isSameDay,
     isSameWeek,
     parseISO,
+    roundToNearestMinutes,
 } from 'date-fns';
 import classNames from '~/utils/classNames';
 
@@ -29,11 +31,17 @@ export let loader: LoaderFunction = async () => {
     //     })
     // );
 
+    // TODO: generateRecurringEvents is messing up start date
     const allRecurringEvents = await Promise.all(
         recurringEvents.map(
             async (single) => await generateRecurringEvents(single)
         )
     );
+
+    console.log('ASDJHBDSJHFBJSB');
+    allRecurringEvents.flat(1).forEach((event) => {
+        console.log(event.title + ': ' + event.start);
+    });
 
     // const sortedEvents = allRecurringEvents
     //     .flat(1)
@@ -62,18 +70,31 @@ export let loader: LoaderFunction = async () => {
     return allRecurringEvents.flat(1);
 };
 
+// roundToNearestMinutes
+// https://date-fns.org/v2.28.0/docs/roundToNearestMinutes
 function roundToNearestFifth(number: number) {
     return Math.ceil(number / 5) * 5;
 }
 
-function timeToGridRow(date: Date) {
+function timeToGridRow(event: ParsedEvent) {
     const oneAM = 14;
     const fiveMinuteIncrement = 3;
     const hourMultiplier = 12; // wrong
-    const hourNumber = 2 + getHours(date) * hourMultiplier;
-    const minuteNumber = roundToNearestFifth(getMinutes(date));
+    const minutesInHour = 60;
+    const toGridRow = 12;
+
+    const hourNumber = 2 + getHours(event.startDate) * hourMultiplier;
+    const minuteNumber = roundToNearestMinutes(getMinutes(event.startDate), {
+        nearestTo: 15,
+    });
+    console.log('event.duration');
+
+    const duration = Math.round(event.duration / minutesInHour) * toGridRow;
     // console.log(minuteNumber);
-    const gridRowString = `${hourNumber} / span 12`;
+
+    console.log('hourNumber');
+    console.log(hourNumber);
+    const gridRowString = `${hourNumber} / span ${duration}`;
     return gridRowString;
     // return hourNumber + minuteNumber;
 }
@@ -89,30 +110,94 @@ const sixAM = 74; // 12
 // const sevenAM = ;
 const twelveAM = 146;
 
+const colSelector = [
+    'sm:col-start-1',
+    'sm:col-start-2',
+    'sm:col-start-3',
+    'sm:col-start-4',
+    'sm:col-start-6',
+    'sm:col-start-7',
+    'sm:col-start-8',
+];
+
+function colorSelector(data: ParsedEvent) {
+    // isThisHour
+    const minutesUntil = getHours(data.startDate) * 60;
+    console.log('minutesUntil vv');
+    console.log(minutesUntil);
+
+    if (data.isPassed) {
+        console.log('IS PASSED');
+        return {
+            bg: 'bg-gray-500 hover:bg-gray-500',
+            titleText: 'text-gray-700',
+            dateText: 'text-gray-700 group-hover:text-gray-700',
+        };
+    }
+    if (minutesUntil < 60) {
+        return {
+            bg: 'bg-red-500 hover:bg-red-500',
+            titleText: 'text-red-700',
+            dateText: 'text-red-700 group-hover:text-red-700',
+        };
+    }
+
+    return {
+        bg: 'bg-blue-50 hover:bg-blue-100',
+        titleText: 'text-blue-700',
+        dateText: 'text-blue-700 group-hover:text-blue-700',
+    };
+}
+
 const EventWeekItem = ({ event }: { event: Event }) => {
     const data = parseEventData(event);
+
+    if (data.title === 'CSE 252') {
+        console.log('ME');
+    }
+
+    // isWithinInterval
+    const colors = colorSelector(data);
+    console.log(colors);
+
     // console.log(data);
     // console.log(timeToGridRow(data.startDate));
     // console.log(data.startingDayOfWeek);
     // console.log('AHHHHH');
-    console.log(data.startingDayOfWeek);
-    const timeStyle = `sm:col-start-${data.startingDayOfWeek}`;
+    // console.log(data.startingDayOfWeek);
+
+    // Tailwind please
+    // https://v2.tailwindcss.com/docs/just-in-time-mode#:~:text=this%20feature%20responsibly.-,Dynamic%20values,-Note%20that%20you
+    const timeStyle = colSelector[data.startingDayOfWeek - 1];
+    const currentMinute = new Date().getHours() * 60;
+    // console.log(timeStyle);
     return (
         <li
             className={classNames('relative mt-px flex', timeStyle)}
-            style={{ gridRow: timeToGridRow(data.startDate) }} // 6:00 AM
+            style={{ gridRow: timeToGridRow(data) }} // 6:00 AM
         >
             <Link
                 to={`/events/${data.id}`}
-                className="group absolute inset-1 flex flex-col overflow-y-auto rounded-lg bg-blue-50 p-2 text-xs leading-5 hover:bg-blue-100"
+                className={`group absolute inset-1 flex flex-col overflow-y-auto rounded-lg ${colors.bg} p-2 text-xs leading-5`}
             >
-                <p className="order-1 font-semibold text-blue-700">
+                <p className={`order-1 font-semibold ${colors.titleText}`}>
                     {data.title}
                 </p>
                 {/* <div className="prose">
-                    <pre>{JSON.stringify(data, null, 2)}</pre>
+                    <pre>
+                        {JSON.stringify(
+                            {
+                                title: data.title,
+                                start: data.start,
+                                pattern: data.recurringPattern,
+                                timeUntil: data.timeUntil,
+                            },
+                            null,
+                            2
+                        )}
+                    </pre>
                 </div> */}
-                <p className="text-blue-500 group-hover:text-blue-700">
+                <p className={`${colors.dateText}`}>
                     <time dateTime={data.start}>{data.startTimeFormatted}</time>
                 </p>
             </Link>
@@ -125,30 +210,45 @@ export default function Week() {
     const containerNav = useRef(null);
     const containerOffset = useRef(null);
     const events = useLoaderData<LoaderData>();
+    console.log('events');
     console.log(events);
+    console.log('events');
     const currentDate = new Date();
+
+    // const earliestTime = events.reduce((acc, cur) =>
+    //     acc.start.split('T')[1] > cur.start.split('T')[1] ? cur : acc
+    // );
+
+    // Potential TODO: scope to event times (changes the grid errrrrr)
+    // console.log('earliestTime');
+    // const earliestTime = getHours(parseISO(events[0].start));
+    // console.log(earliestTime);
+    // console.log('latestTime');
+    // const latestTime = getHours(parseISO(events[events.length - 1].start));
+    // console.log(latestTime);
+    // console.log(earliestTime);
 
     // return <div>Check console</div>;
 
-    // useEffect(() => {
-    //     // Set the container scroll position based on the current time.
-    //     if (
-    //         container &&
-    //         containerNav &&
-    //         container.current &&
-    //         containerNav.current &&
-    //         containerOffset &&
-    //         containerOffset.current
-    //     ) {
-    //         const currentMinute = new Date().getHours() * 60;
-    //         container.current.scrollTop =
-    //             ((container.current.scrollHeight -
-    //                 containerNav.current.offsetHeight -
-    //                 containerOffset.current.offsetHeight) *
-    //                 currentMinute) /
-    //             1440;
-    //     }
-    // }, []);
+    useEffect(() => {
+        // Set the container scroll position based on the current time.
+        if (
+            container &&
+            containerNav &&
+            container.current &&
+            containerNav.current &&
+            containerOffset &&
+            containerOffset.current
+        ) {
+            const currentMinute = new Date().getHours() * 60;
+            container.current.scrollTop =
+                ((container.current.scrollHeight -
+                    containerNav.current.offsetHeight -
+                    containerOffset.current.offsetHeight) *
+                    currentMinute) /
+                1440;
+        }
+    }, []);
 
     return (
         <div>
@@ -354,6 +454,7 @@ export default function Week() {
                                         '1.75rem repeat(288, minmax(0, 1fr)) auto',
                                 }}
                             >
+                                {/* <div className="hidden sm:col-span-1 sm:col-span-2 sm:col-span-3 sm:col-span-4" /> */}
                                 {events.map((event) => (
                                     <EventWeekItem
                                         event={event}
